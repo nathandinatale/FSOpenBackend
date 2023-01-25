@@ -1,7 +1,14 @@
 const express = require("express");
+const morgan = require("morgan");
+
 const app = express();
 
 app.use(express.json());
+app.use(morgan("tiny"));
+
+morgan.token("reqBody", (request, response) => {
+  return JSON.stringify(request.body);
+});
 
 let persons = [
   {
@@ -51,28 +58,40 @@ app.delete("/api/persons/:id", (request, response) => {
   response.status(204).end();
 });
 
-app.post("/api/persons", (request, response) => {
-  const { name, number } = request.body;
+app.post(
+  "/api/persons",
+  morgan(
+    ":method :url :status :res[content-length] - :response-time ms :reqBody"
+  ),
+  (request, response) => {
+    const { name, number } = request.body;
 
-  if (!name || !number) {
-    response.status(400).end();
-    return;
+    if (!name || !number) {
+      response.status(400).end();
+      return;
+    }
+
+    if (persons.find((person) => person.name === name)) {
+      response.status(400).json({ error: "name must be unique" });
+      return;
+    }
+
+    const person = {
+      id: Math.floor(Math.random() * 1000),
+      name,
+      number,
+    };
+
+    persons = persons.concat(person);
+    response.json(persons);
   }
+);
 
-  if (persons.find((person) => person.name === name)) {
-    response.status(400).json({ error: "name must be unique" });
-    return;
-  }
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
 
-  const person = {
-    name,
-    number,
-    id: Math.floor(Math.random() * 1000),
-  };
-
-  persons = persons.concat(person);
-  response.json(persons);
-});
+app.use(unknownEndpoint);
 
 const PORT = 3001;
 app.listen(PORT, () => {
