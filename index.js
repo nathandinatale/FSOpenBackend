@@ -5,6 +5,7 @@ const cors = require("cors");
 const app = express();
 
 app.use(express.json());
+app.use(express.static("build"));
 app.use(cors());
 app.use(morgan("tiny"));
 
@@ -85,6 +86,7 @@ app.post(
     };
 
     persons = persons.concat(person);
+    // Could just return the added element instead
     response.json(persons);
   }
 );
