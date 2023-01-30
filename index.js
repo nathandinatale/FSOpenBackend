@@ -15,52 +15,51 @@ morgan.token("reqBody", (request, response) => {
   return JSON.stringify(request.body);
 });
 
-let persons = [
-  {
-    id: 1,
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: 2,
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: 3,
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: 4,
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-];
-
-app.get("/info", (request, response) => {
-  response.send(
-    `<p>Phone has info for ${persons.length} people</p><p>${new Date()}</p>`
-  );
+app.get("/info", (request, response, next) => {
+  Person.count()
+    .then((result) =>
+      response
+        .status(200)
+        .send(`<p>Phone has info for ${result} people</p><p>${new Date()}</p>`)
+        .end()
+    )
+    .catch((error) => next(error));
 });
 
-app.get("/api/persons", (request, response) => {
-  Person.find({}).then((persons) => response.json(persons));
+app.get("/api/persons", (request, response, error) => {
+  Person.find({})
+    .then((persons) => response.json(persons).end())
+    .catch((error) => next(error));
 });
 
-app.get("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  const person = persons.find((person) => person.id === id);
-
-  if (person) response.json(person);
-  else response.status(204).end();
+// Prefer to just return the response code over additional branching
+app.get("/api/persons/:id", (request, response, next) => {
+  Person.findById(request.params.id)
+    .then((result) => {
+      if (!result) return response.status(404).end();
+      response.json(result).end();
+    })
+    .catch((error) => next(error));
 });
 
-app.delete("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  persons = persons.filter((person) => person.id !== id);
+app.put("/api/persons/:id", (request, response, next) => {
+  const { name, number, id } = request.body;
+  Person.findByIdAndUpdate(id, { name, number })
+    .then((result) => {
+      if (!result) return response.status(404).end();
+      response.status(200).end();
+    })
+    .catch((error) => next(error));
+});
 
-  response.status(204).end();
+// Better to just return 204 a
+app.delete("/api/persons/:id", (request, response, next) => {
+  Person.findByIdAndRemove(request.params.id)
+    .then((result) => {
+      if (!result) return response.status(404).end();
+      response.status(204).end();
+    })
+    .catch((error) => next(error));
 });
 
 app.post(
@@ -68,12 +67,11 @@ app.post(
   morgan(
     ":method :url :status :res[content-length] - :response-time ms :reqBody"
   ),
-  (request, response) => {
+  (request, response, error) => {
     const { name, number } = request.body;
 
     if (!name || !number) {
-      response.status(400).end();
-      return;
+      return response.status(400).end();
     }
 
     const person = new Person({
@@ -81,8 +79,14 @@ app.post(
       number,
     });
 
-    person.save().then((savedPerson) => {
-      response.json(savedPerson);
+    Person.findOne({ name }).then((result) => {
+      if (result) return response.status(409).end();
+      person
+        .save()
+        .then((savedPerson) => {
+          response.json(savedPerson);
+        })
+        .catch((error) => next(error));
     });
   }
 );
@@ -91,7 +95,15 @@ const unknownEndpoint = (request, response) => {
   response.status(404).send({ error: "unknown endpoint" });
 };
 
+const errorHandler = (error, request, response, next) => {
+  // console.log(error);
+  if (error.name === "CastError")
+    return response.status(400).send({ error: "malformatted id" }).end();
+  response.status(500).end();
+};
+
 app.use(unknownEndpoint);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
