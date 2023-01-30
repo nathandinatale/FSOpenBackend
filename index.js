@@ -9,6 +9,8 @@ app.use(express.static("build"));
 app.use(cors());
 app.use(morgan("tiny"));
 
+const Person = require("./models/person");
+
 morgan.token("reqBody", (request, response) => {
   return JSON.stringify(request.body);
 });
@@ -43,7 +45,7 @@ app.get("/info", (request, response) => {
 });
 
 app.get("/api/persons", (request, response) => {
-  response.json(persons);
+  Person.find({}).then((persons) => response.json(persons));
 });
 
 app.get("/api/persons/:id", (request, response) => {
@@ -74,20 +76,14 @@ app.post(
       return;
     }
 
-    if (persons.find((person) => person.name === name)) {
-      response.status(400).json({ error: "name must be unique" });
-      return;
-    }
-
-    const person = {
-      id: Math.floor(Math.random() * 1000),
+    const person = new Person({
       name,
       number,
-    };
+    });
 
-    persons = persons.concat(person);
-    // Could just return the added element instead
-    response.json(persons);
+    person.save().then((savedPerson) => {
+      response.json(savedPerson);
+    });
   }
 );
 

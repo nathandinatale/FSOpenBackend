@@ -1,3 +1,4 @@
+// some of this code is repeated in models/person.js but this pertains only to exercise 3.12
 const mongoose = require("mongoose");
 
 if (process.argv.length < 3) {
