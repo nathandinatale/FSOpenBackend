@@ -44,7 +44,11 @@ app.get("/api/persons/:id", (request, response, next) => {
 
 app.put("/api/persons/:id", (request, response, next) => {
   const { name, number, id } = request.body;
-  Person.findByIdAndUpdate(id, { name, number })
+  Person.findByIdAndUpdate(
+    id,
+    { name, number },
+    { new: true, runValidators: true, context: "query" }
+  )
     .then((result) => {
       if (!result) return response.status(404).end();
       response.status(200).end();
@@ -67,7 +71,7 @@ app.post(
   morgan(
     ":method :url :status :res[content-length] - :response-time ms :reqBody"
   ),
-  (request, response, error) => {
+  (request, response, next) => {
     const { name, number } = request.body;
 
     if (!name || !number) {
@@ -80,7 +84,11 @@ app.post(
     });
 
     Person.findOne({ name }).then((result) => {
-      if (result) return response.status(409).end();
+      if (result)
+        return response
+          .status(409)
+          .send({ error: `${result.name} already exists in the database!` })
+          .end();
       person
         .save()
         .then((savedPerson) => {
@@ -99,6 +107,9 @@ const errorHandler = (error, request, response, next) => {
   // console.log(error);
   if (error.name === "CastError")
     return response.status(400).send({ error: "malformatted id" }).end();
+
+  if (error.name === "ValidationError")
+    return response.status(400).json({ error: error.message });
   response.status(500).end();
 };
 
