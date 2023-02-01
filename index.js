@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
@@ -11,7 +12,7 @@ app.use(morgan("tiny"));
 
 const Person = require("./models/person");
 
-morgan.token("reqBody", (request, response) => {
+morgan.token("reqBody", (request) => {
   return JSON.stringify(request.body);
 });
 
@@ -26,7 +27,7 @@ app.get("/info", (request, response, next) => {
     .catch((error) => next(error));
 });
 
-app.get("/api/persons", (request, response, error) => {
+app.get("/api/persons", (request, response, next) => {
   Person.find({})
     .then((persons) => response.json(persons).end())
     .catch((error) => next(error));
@@ -56,7 +57,6 @@ app.put("/api/persons/:id", (request, response, next) => {
     .catch((error) => next(error));
 });
 
-// Better to just return 204 a
 app.delete("/api/persons/:id", (request, response, next) => {
   Person.findByIdAndRemove(request.params.id)
     .then((result) => {
@@ -73,11 +73,9 @@ app.post(
   ),
   (request, response, next) => {
     const { name, number } = request.body;
-
     if (!name || !number) {
       return response.status(400).end();
     }
-
     const person = new Person({
       name,
       number,
@@ -103,7 +101,7 @@ const unknownEndpoint = (request, response) => {
   response.status(404).send({ error: "unknown endpoint" });
 };
 
-const errorHandler = (error, request, response, next) => {
+const errorHandler = (error, request, response) => {
   // console.log(error);
   if (error.name === "CastError")
     return response.status(400).send({ error: "malformatted id" }).end();

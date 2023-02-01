@@ -5,10 +5,11 @@ mongoose.set("strictQuery", false);
 
 const url = process.env.MONGODB_URI;
 
+// ESLint doesn't like .then(result) if the parameter is unused
 mongoose
   .connect(url)
-  .then((result) => {
-    console.log("connected to MongoDB");
+  .then(() => {
+    console.log("connected to mongoDB");
   })
   .catch((error) => {
     console.log("error connecting to MongoDB:", error.message);
@@ -39,6 +40,17 @@ personSchema.set("toJSON", {
   },
 });
 
-const Person = mongoose.model("Person", personSchema);
+process.on("SIGINT", () => {
+  mongoose.connection
+    .close()
+    .then(() => {
+      console.log("Mongoose connection closed");
+      process.exit();
+    })
+    .catch((error) => {
+      console.log("issue when closing mongoose connection", error);
+      process.exit();
+    });
+});
 
 module.exports = mongoose.model("Person", personSchema);
